@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Репин Генурод — Официальный сайт</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f0f0f;
+            color: #ffffff;
+            scroll-behavior: smooth;
+        }
+        h1, h2, .accent-font {
+            font-family: 'Unbounded', sans-serif;
+        }
+        .hero-gradient {
+            background: linear-gradient(135deg, #6d28d9 0%, #d946ef 100%);
+        }
+        .card-blur {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .genurod-text {
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            background: linear-gradient(to right, #fff, #a855f7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .floating {
+            animation: floating 3s ease-in-out infinite;
+        }
+        @keyframes floating {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+            100% { transform: translateY(0px); }
+        }
+    </style>
+</head>
+<body class="overflow-x-hidden">
+
+    <!-- Навигация -->
+    <nav class="fixed w-full z-50 p-6 flex justify-between items-center bg-black/50 backdrop-blur-md">
+        <div class="text-2xl font-bold accent-font">РГ.</div>
+        <div class="space-x-8 hidden md:flex">
+            <a href="#about" class="hover:text-purple-400 transition">О персонаже</a>
+            <a href="#gallery" class="hover:text-purple-400 transition">Галерея</a>
+            <a href="#contact" class="hover:text-purple-400 transition">Связь</a>
+        </div>
+        <button class="bg-purple-600 px-6 py-2 rounded-full font-semibold hover:bg-purple-700 transition">Вход</button>
+    </nav>
+
+    <!-- Главный экран -->
+    <section class="relative min-h-screen flex items-center justify-center pt-20">
+        <div class="absolute inset-0 z-0 overflow-hidden">
+            <div class="hero-gradient absolute top-[-10%] right-[-10%] w-[500px] h-[500px] rounded-full opacity-20 blur-[120px]"></div>
+            <div class="hero-gradient absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full opacity-20 blur-[120px]"></div>
+        </div>
+
+        <div class="container mx-auto px-6 z-10 text-center">
+            <h1 class="text-6xl md:text-9xl font-bold mb-6 genurod-text">Репин Генурод</h1>
+            <p class="text-xl md:text-2xl text-gray-400 max-w-2xl mx-auto mb-10 leading-relaxed">
+                Тот самый проект, о котором все слышали, но никто не понял. Стиль, хаос и немного генуродства.
+            </p>
+            <div class="flex flex-col md:flex-row justify-center gap-4">
+                <a href="#gallery" class="bg-white text-black px-10 py-4 rounded-xl font-bold text-lg hover:scale-105 transition transform">Посмотреть всё</a>
+                <button onclick="showSecret()" class="card-blur px-10 py-4 rounded-xl font-bold text-lg hover:bg-white/10 transition">Секретная кнопка</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- О нас -->
+    <section id="about" class="py-24 bg-[#0a0a0a]">
+        <div class="container mx-auto px-6">
+            <div class="grid md:grid-grid-cols-2 gap-12 items-center">
+                <div class="floating">
+                    <div class="w-full aspect-square rounded-3xl overflow-hidden bg-gradient-to-br from-purple-900 to-black p-1">
+                        <div class="w-full h-full bg-[#111] rounded-[calc(1.5rem-4px)] flex items-center justify-center text-8xl">
+                            🧬
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <h2 class="text-4xl font-bold mb-8">Что это вообще такое?</h2>
+                    <p class="text-gray-400 text-lg mb-6 leading-relaxed">
+                        Репин Генурод — это не просто имя. Это философия существования в цифровом пространстве. Мы объединяем несочетаемое, создаем странное и радуемся результату.
+                    </p>
+                    <ul class="space-y-4">
+                        <li class="flex items-center gap-3">
+                            <span class="w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center text-xs">✓</span>
+                            <span>Максимальная уникальность</span>
+                        </li>
+                        <li class="flex items-center gap-3">
+                            <span class="w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center text-xs">✓</span>
+                            <span>Генуродная эстетика</span>
+                        </li>
+                        <li class="flex items-center gap-3">
+                            <span class="w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center text-xs">✓</span>
+                            <span>Никакого здравого смысла</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Галерея -->
+    <section id="gallery" class="py-24">
+        <div class="container mx-auto px-6">
+            <h2 class="text-4xl font-bold mb-12 text-center">Экспонаты Генурода</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Карточки -->
+                <div class="card-blur rounded-2xl p-4 hover:border-purple-500 transition-all duration-300 group">
+                    <div class="bg-gray-800 h-64 rounded-xl mb-4 overflow-hidden flex items-center justify-center text-5xl">
+                        🖼️
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">Объект №1</h3>
+                    <p class="text-gray-500">Первая итерация генуродства в чистом виде.</p>
+                </div>
+                <div class="card-blur rounded-2xl p-4 hover:border-purple-500 transition-all duration-300 group">
+                    <div class="bg-gray-800 h-64 rounded-xl mb-4 overflow-hidden flex items-center justify-center text-5xl">
+                        🗿
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">Статуя Репина</h3>
+                    <p class="text-gray-500">Виртуальный памятник главному герою сайта.</p>
+                </div>
+                <div class="card-blur rounded-2xl p-4 hover:border-purple-500 transition-all duration-300 group">
+                    <div class="bg-gray-800 h-64 rounded-xl mb-4 overflow-hidden flex items-center justify-center text-5xl">
+                        🌀
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">Аномалия</h3>
+                    <p class="text-gray-500">Когда генуродство заходит слишком далеко.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Футер -->
+    <footer id="contact" class="py-12 border-t border-white/10 text-center">
+        <div class="container mx-auto px-6">
+            <p class="text-gray-500 mb-4 italic">"Генурод — это не диагноз, это состояние души."</p>
+            <p class="text-sm opacity-50">&copy; 2024 Репин Генурод Инкорпорейтед. Все права нарушены.</p>
+        </div>
+    </footer>
+
+    <!-- Кастомное сообщение -->
+    <div id="modal" class="fixed inset-0 bg-black/80 hidden z-[100] items-center justify-center p-6">
+        <div class="card-blur p-10 rounded-3xl max-w-sm text-center">
+            <h2 class="text-2xl font-bold mb-4">Внимание!</h2>
+            <p class="mb-6">Вы активировали режим максимального Генурода. Теперь назад пути нет.</p>
+            <button onclick="closeModal()" class="bg-purple-600 px-6 py-2 rounded-xl">Понятно, удачи</button>
+        </div>
+    </div>
+
+    <script>
+        function showSecret() {
+            document.getElementById('modal').style.display = 'flex';
+        }
+        function closeModal() {
+            document.getElementById('modal').style.display = 'none';
+        }
+
+        // Параллакс эффект для заголовка
+        window.addEventListener('scroll', () => {
+            const scrolled = window.pageYOffset;
+            const heroText = document.querySelector('.genurod-text');
+            heroText.style.transform = `translateY(${scrolled * 0.3}px)`;
+        });
+    </script>
+</body>
+</html>
+
+  
