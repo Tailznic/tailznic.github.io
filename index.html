@@ -3,71 +3,117 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Media Randomizer</title>
+    <title>My Media Player</title>
     <style>
+        /* Оформление в стиле TikTok: черный фон и контент по центру */
         body, html {
-            margin: 0; padding: 0; height: 100%; width: 100%;
-            background: #000; overflow: hidden;
+            margin: 0; padding: 0;
+            height: 100%; width: 100%;
+            background: #000;
             display: flex; justify-content: center; align-items: center;
+            overflow: hidden;
             cursor: pointer;
+            font-family: sans-serif;
         }
+
         .content {
-            max-height: 100vh; max-width: 100vw;
-            display: none; /* Скрыты по умолчанию */
+            max-height: 100vh;
+            max-width: 100vw;
+            display: none; /* Скрыто до загрузки первого файла */
             object-fit: contain;
+        }
+
+        /* Подсказка, если файлов еще нет */
+        #loader {
+            color: #555;
+            font-size: 14px;
         }
     </style>
 </head>
 <body onclick="showNext()">
 
-    <video id="vPlayer" class="content" autoplay playsinline></video>
+    <div id="loader">Загрузка медиа...</div>
+
+    <video id="vPlayer" class="content" autoplay playsinline muted></video>
     
     <img id="iPlayer" class="content" alt="Media">
 
     <script>
-        // Список файлов (видео, фото, гифки) в папке media
-        const mediaFiles = [
-            'video1.mp4',
-            'photo1.jpg',
-            'meme.gif',
-            'cool-video.webm'
-        ];
+        // === НАСТРОЙКИ ===
+        const USERNAME = 'ТВОЙ_ЛОГИН';      // Твой логин на GitHub
+        const REPO = 'ТВОЙ_РЕПОЗИТОРИЙ';   // Название твоего репозитория
+        const FOLDER = 'media';             // Папка, куда ты будешь кидать файлы
+        // ================
 
+        let mediaFiles = [];
         let queue = [];
         const vPlayer = document.getElementById('vPlayer');
         const iPlayer = document.getElementById('iPlayer');
+        const loader = document.getElementById('loader');
+
+        // Функция получения списка файлов через GitHub API
+        async function fetchMediaList() {
+            const url = `https://api.github.com/repos/${USERNAME}/${REPO}/contents/${FOLDER}`;
+            
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Папка не найдена или репозиторий приватный');
+                
+                const data = await response.json();
+                
+                // Фильтруем файлы (видео, фото, гифки)
+                mediaFiles = data
+                    .filter(file => file.type === 'file')
+                    .map(file => file.download_url);
+                
+                if (mediaFiles.length > 0) {
+                    loader.style.display = 'none';
+                    showNext();
+                } else {
+                    loader.innerText = 'Папка "media" пуста. Добавь туда файлы!';
+                }
+            } catch (error) {
+                console.error(error);
+                loader.innerText = 'Ошибка: проверь настройки в коде (логин и репо)';
+            }
+        }
 
         function showNext() {
+            if (mediaFiles.length === 0) return;
+
+            // Если очередь пуста, перемешиваем список заново (не даем повторяться)
             if (queue.length === 0) {
                 queue = [...mediaFiles].sort(() => Math.random() - 0.5);
             }
 
-            const fileName = queue.pop();
-            const ext = fileName.split('.').pop().toLowerCase();
-            const path = 'media/' + fileName;
+            const fileUrl = queue.pop();
+            const ext = fileUrl.split('.').pop().toLowerCase().split('?')[0];
 
-            // Скрываем оба плеера перед сменой
+            // Сброс состояния
             vPlayer.style.display = 'none';
             iPlayer.style.display = 'none';
             vPlayer.pause();
+            vPlayer.src = "";
 
-            // Проверяем расширение
+            // Проверка расширения и отображение нужного элемента
             if (['mp4', 'webm', 'mov'].includes(ext)) {
-                vPlayer.src = path;
+                vPlayer.src = fileUrl;
                 vPlayer.style.display = 'block';
-                vPlayer.play();
-            } else {
-                iPlayer.src = path;
+                vPlayer.play().catch(e => console.log("Автоплей заблокирован, нужен клик"));
+            } else if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif'].includes(ext)) {
+                iPlayer.src = fileUrl;
                 iPlayer.style.display = 'block';
+            } else {
+                // Если попался неизвестный файл, пропускаем его и идем к следующему
+                showNext();
             }
         }
 
-        // Автопереход, если закончилось видео
+        // Автоматический переход после завершения видео
         vPlayer.onended = showNext;
 
-        // Запуск первого файла
-        showNext();
+        // Запуск процесса
+        fetchMediaList();
     </script>
 </body>
 </html>
-
