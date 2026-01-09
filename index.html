@@ -3,128 +3,71 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Репин Генурод | Официальный сайт</title>
-    <!-- Подключаем Tailwind напрямую через CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Media Randomizer</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;900&display=swap');
-        
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #000;
-            color: #fff;
-            margin: 0;
-            overflow-x: hidden;
+        body, html {
+            margin: 0; padding: 0; height: 100%; width: 100%;
+            background: #000; overflow: hidden;
+            display: flex; justify-content: center; align-items: center;
+            cursor: pointer;
         }
-
-        .gradient-bg {
-            background: radial-gradient(circle at 50% 50%, #1a0033 0%, #000000 100%);
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: -1;
-        }
-
-        .glitch-text {
-            text-transform: uppercase;
-            font-weight: 900;
-            background: linear-gradient(90deg, #ff00ff, #00ffff);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            filter: drop-shadow(0 0 10px rgba(255, 0, 255, 0.5));
-        }
-
-        .card {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            transition: all 0.3s ease;
-        }
-
-        .card:hover {
-            border-color: #ff00ff;
-            transform: translateY(-5px);
-            box-shadow: 0 10px 30px rgba(255, 0, 255, 0.2);
-        }
-
-        /* Анимация появления */
-        .fade-in {
-            animation: fadeIn 1.5s ease-out;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
+        .content {
+            max-height: 100vh; max-width: 100vw;
+            display: none; /* Скрыты по умолчанию */
+            object-fit: contain;
         }
     </style>
 </head>
-<body>
+<body onclick="showNext()">
 
-    <div class="gradient-bg"></div>
-
-    <!-- Контент -->
-    <div class="min-h-screen flex flex-col items-center justify-center p-6 fade-in">
-        
-        <header class="text-center mb-12">
-            <div class="inline-block px-4 py-1 border border-magenta-500 rounded-full text-xs font-mono text-pink-500 mb-4 tracking-widest uppercase">
-                Project v1.0
-            </div>
-            <h1 class="text-7xl md:text-9xl glitch-text leading-none mb-4">
-                РЕПИН<br>ГЕНУРОД
-            </h1>
-            <p class="text-gray-400 max-w-md mx-auto text-lg">
-                Самый странный проект этого года. Эстетика, хаос и цифровое безумие.
-            </p>
-        </header>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl">
-            <!-- Карточка 1 -->
-            <div class="card p-8 rounded-3xl">
-                <h3 class="text-2xl font-bold mb-2">Ген-Модуль</h3>
-                <p class="text-gray-500 mb-4">Автоматическая генерация уникальных уродств в реальном времени.</p>
-                <button onclick="showAlert('Модуль в разработке')" class="text-pink-500 font-bold hover:underline">Запустить →</button>
-            </div>
-
-            <!-- Карточка 2 -->
-            <div class="card p-8 rounded-3xl">
-                <h3 class="text-2xl font-bold mb-2">Архив Репина</h3>
-                <p class="text-gray-500 mb-4">Секретные материалы и наброски, которые не должны были увидеть свет.</p>
-                <button onclick="showAlert('Доступ ограничен')" class="text-cyan-400 font-bold hover:underline">Открыть →</button>
-            </div>
-        </div>
-
-        <footer class="mt-20 text-gray-600 text-sm font-mono tracking-tighter">
-            CREATED BY GENUROD LABS // 2024
-        </footer>
-    </div>
-
-    <!-- Модальное окно (вместо алертов) -->
-    <div id="customAlert" class="fixed inset-0 bg-black/90 hidden items-center justify-center z-50 p-4">
-        <div class="bg-[#111] border border-pink-500 p-10 rounded-3xl max-w-xs w-full text-center">
-            <div class="text-5xl mb-4">⚠️</div>
-            <p id="alertMessage" class="text-white text-lg font-bold mb-6"></p>
-            <button onclick="closeAlert()" class="w-full bg-pink-600 py-3 rounded-xl font-bold active:scale-95 transition">ОК</button>
-        </div>
-    </div>
+    <video id="vPlayer" class="content" autoplay playsinline></video>
+    
+    <img id="iPlayer" class="content" alt="Media">
 
     <script>
-        function showAlert(msg) {
-            document.getElementById('alertMessage').innerText = msg;
-            document.getElementById('customAlert').style.display = 'flex';
+        // Список файлов (видео, фото, гифки) в папке media/
+        const mediaFiles = [
+            'video1.mp4',
+            'photo1.jpg',
+            'meme.gif',
+            'cool-video.webm'
+        ];
+
+        let queue = [];
+        const vPlayer = document.getElementById('vPlayer');
+        const iPlayer = document.getElementById('iPlayer');
+
+        function showNext() {
+            if (queue.length === 0) {
+                queue = [...mediaFiles].sort(() => Math.random() - 0.5);
+            }
+
+            const fileName = queue.pop();
+            const ext = fileName.split('.').pop().toLowerCase();
+            const path = 'media/' + fileName;
+
+            // Скрываем оба плеера перед сменой
+            vPlayer.style.display = 'none';
+            iPlayer.style.display = 'none';
+            vPlayer.pause();
+
+            // Проверяем расширение
+            if (['mp4', 'webm', 'mov'].includes(ext)) {
+                vPlayer.src = path;
+                vPlayer.style.display = 'block';
+                vPlayer.play();
+            } else {
+                iPlayer.src = path;
+                iPlayer.style.display = 'block';
+            }
         }
 
-        function closeAlert() {
-            document.getElementById('customAlert').style.display = 'none';
-        }
+        // Автопереход, если закончилось видео
+        vPlayer.onended = showNext;
 
-        // Добавим немного интерактива - движение фона
-        document.addEventListener('mousemove', (e) => {
-            const x = e.clientX / window.innerWidth;
-            const y = e.clientY / window.innerHeight;
-            document.querySelector('.gradient-bg').style.transform = `translate(${x * 20}px, ${y * 20}px)`;
-        });
+        // Запуск первого файла
+        showNext();
     </script>
 </body>
 </html>
+
