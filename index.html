@@ -3,135 +3,94 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tailznic Media Player</title>
+    <title>Tailznic Player</title>
     <style>
-        /* Стиль плеера: черный фон, контент на весь экран */
         body, html {
-            margin: 0; padding: 0;
-            height: 100%; width: 100%;
-            background: #000;
+            margin: 0; padding: 0; height: 100%; width: 100%;
+            background: #000; overflow: hidden;
             display: flex; justify-content: center; align-items: center;
-            overflow: hidden;
-            cursor: pointer;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            cursor: pointer; color: #fff; font-family: sans-serif;
         }
-
         .content {
-            max-height: 100vh;
-            max-width: 100vw;
-            display: none;
-            object-fit: contain;
+            max-height: 100vh; max-width: 100vw;
+            display: none; object-fit: contain;
         }
-
-        #loader {
-            color: #fff;
-            font-size: 16px;
-            text-align: center;
-        }
-
-        /* Маленькая подсказка снизу */
-        .hint {
-            position: fixed;
-            bottom: 20px;
-            color: rgba(255, 255, 255, 0.3);
-            font-size: 12px;
-            pointer-events: none;
+        #status {
+            position: fixed; text-align: center; width: 100%;
+            font-size: 18px; color: rgba(255,255,255,0.4);
         }
     </style>
 </head>
 <body onclick="showNext()">
 
-    <div id="loader">Загрузка файлов из /media...</div>
+    <div id="status">Нажмите на меня</div>
 
-    <video id="vPlayer" class="content" autoplay playsinline></video>
-    <img id="iPlayer" class="content" alt="Media">
-
-    <div class="hint">Нажми на экран для пропуска</div>
+    <video id="v" class="content" playsinline></video>
+    <img id="i" class="content">
 
     <script>
-        // Твои настройки уже вписаны
-        const USERNAME = 'Tailznic';      
-        const REPO = 'tailznic.github.io'; 
-        const FOLDER = 'media';             
+        const USER = 'Tailznic';
+        const REPO = 'tailznic.github.io';
+        const FOLDER = 'media'; 
 
-        let mediaFiles = [];
+        let files = [];
         let queue = [];
-        const vPlayer = document.getElementById('vPlayer');
-        const iPlayer = document.getElementById('iPlayer');
-        const loader = document.getElementById('loader');
+        const v = document.getElementById('v');
+        const i = document.getElementById('i');
+        const status = document.getElementById('status');
 
-        async function fetchMediaList() {
-            // Запрашиваем список файлов через API GitHub
-            const url = `https://api.github.com/repos/${USERNAME}/${REPO}/contents/${FOLDER}`;
-            
+        async function init() {
             try {
-                const response = await fetch(url);
-                if (!response.ok) {
-                    throw new Error('Убедись, что папка "media" существует и в ней есть файлы');
-                }
-                
-                const data = await response.json();
-                
-                // Берем только файлы (не папки)
-                mediaFiles = data
-                    .filter(file => file.type === 'file')
-                    .map(file => file.download_url);
-                
-                if (mediaFiles.length > 0) {
-                    loader.style.display = 'none';
-                    showNext();
-                } else {
-                    loader.innerText = 'Папка "media" пуста. Загрузи туда видео или фото.';
-                }
-            } catch (error) {
-                console.error(error);
-                loader.innerHTML = `Ошибка доступа к API.<br><small>${error.message}</small>`;
+                const res = await fetch(`https://api.github.com/repos/${USER}/${REPO}/contents/${FOLDER}`);
+                const data = await res.json();
+                if (!Array.isArray(data)) return;
+
+                files = data
+                    .filter(f => f.type === 'file')
+                    .map(f => f.download_url);
+            } catch (err) {
+                console.error("Ошибка загрузки:", err);
             }
         }
 
         function showNext() {
-            if (mediaFiles.length === 0) return;
+            if (files.length === 0) return;
+            status.style.display = 'none';
 
-            // Рандом без повторов: если очередь пуста, берем весь список и перемешиваем
             if (queue.length === 0) {
-                queue = [...mediaFiles].sort(() => Math.random() - 0.5);
+                queue = [...files].sort(() => Math.random() - 0.5);
             }
 
-            const fileUrl = queue.pop();
-            const ext = fileUrl.split('.').pop().toLowerCase().split('?')[0];
+            const url = queue.pop();
+            const ext = url.split('.').pop().toLowerCase().split('?')[0];
 
-            // Скрываем всё перед показом следующего
-            vPlayer.style.display = 'none';
-            iPlayer.style.display = 'none';
-            vPlayer.pause();
-            vPlayer.src = "";
+            v.style.display = i.style.display = 'none';
+            v.pause();
+            v.src = "";
 
-            // Проверка формата
-            if (['mp4', 'webm', 'mov'].includes(ext)) {
-                vPlayer.src = fileUrl;
-                vPlayer.style.display = 'block';
-                // Включаем звук (браузер может заблокировать первый автоплей)
-                vPlayer.muted = false; 
-                vPlayer.play().catch(() => {
-                    console.log("Автоплей заблокирован. Кликни по экрану.");
-                    vPlayer.muted = true; // Если не дали включить со звуком, включаем без звука
-                    vPlayer.play();
+            // Расширенная поддержка форматов
+            const videoExts = ['mp4', 'webm', 'mov', 'ogg'];
+            const photoExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'bmp'];
+
+            if (videoExts.includes(ext)) {
+                v.src = url;
+                v.style.display = 'block';
+                v.muted = false; // ВКЛЮЧАЕМ ЗВУК
+                v.play().catch(e => {
+                    // Если браузер все еще ругается, запускаем без звука
+                    v.muted = false;
+                    v.play();
                 });
-            } else if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif'].includes(ext)) {
-                iPlayer.src = fileUrl;
-                iPlayer.style.display = 'block';
+            } else if (photoExts.includes(ext)) {
+                i.src = url;
+                i.style.display = 'block';
             } else {
-                // Если попался странный файл — просто идем дальше
-                showNext();
+                showNext(); // Если попался файл другого типа, просто берем следующий
             }
         }
 
-        // Авто-переход, когда видео досмотрено
-        vPlayer.onended = showNext;
-
-        // Запуск
-        fetchMediaList();
+        v.onended = showNext;
+        init();
     </script>
 </body>
 </html>
-
