@@ -3,39 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Media Viewer</title>
+    <title>media player by tailznic</title>
     <style>
-        body, html { margin: 0; padding: 0; height: 100%; width: 100%; background: #000; overflow: hidden; font-family: sans-serif; color: white; }
+        body, html { margin: 0; padding: 0; height: 100%; width: 100%; background: #000; overflow: hidden; font-family: sans-serif; color: white; -webkit-user-select: none; }
         #app { position: relative; width: 100%; height: 100%; display: none; overflow: hidden; }
         
         .container {
             position: absolute; width: 100%; height: 100%;
             display: flex; justify-content: center; align-items: center;
-            transition: transform 0.4s cubic-bezier(0.45, 0, 0.55, 1);
+            will-change: transform;
+            background: #000;
         }
 
-        .content { max-height: 100vh; max-width: 100vw; object-fit: contain; }
+        .content { max-height: 100vh; max-width: 100vw; object-fit: contain; pointer-events: none; }
 
-        /* Анимации сдвига */
-        .slide-up { transform: translateY(-100%); }
-        .slide-down { transform: translateY(100%); }
-
-        /* Подсказка */
-        .hint {
-            position: absolute; bottom: 30px; width: 100%; text-align: center;
-            color: rgba(255, 255, 255, 0.4); font-size: 12px; 
-            text-transform: uppercase; letter-spacing: 2px;
-            pointer-events: none; z-index: 10;
+        /* Индикатор Волна */
+        .wave-container {
+            position: absolute; bottom: 0; left: 0; width: 100%; height: 4px;
+            background: rgba(255,255,255,0.1); z-index: 20; overflow: hidden;
+        }
+        .wave {
+            width: 200%; height: 100%; background: linear-gradient(90deg, transparent, #fff, transparent);
+            position: absolute; transform: translateX(-100%);
+            animation: wave-move 2s infinite linear;
+        }
+        @keyframes wave-move {
+            0% { left: -100%; }
+            100% { left: 100%; }
         }
 
-        /* Экран подтверждения (Откат дизайна) */
         #age-gate {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: #000; z-index: 1000; display: flex; flex-direction: column;
-            justify-content: center; align-items: center; text-align: center; padding: 20px;
+            justify-content: center; align-items: center; text-align: center;
         }
-        #age-gate h1 { color: #fe2c55; font-size: 40px; margin: 0 0 15px 0; }
-        #age-gate p { font-size: 16px; margin-bottom: 30px; color: #ccc; line-height: 1.5; }
         #enter-btn { 
             background: #fe2c55; border: none; color: white; padding: 15px 40px; 
             border-radius: 30px; font-size: 16px; font-weight: bold; cursor: pointer;
@@ -45,34 +46,37 @@
 <body>
 
     <div id="age-gate">
-        <h1>18+</h1>
-        <p>Контент может содержать ненормативную лексику.<br>Вам есть 18 лет?</p>
-        <button id="enter-btn" onclick="verifyAge()">ДА, ВОЙТИ</button>
+        <h1 style="color:#fe2c55">18+</h1>
+        <p style="color:#ccc">media player by tailznic</p>
+        <button id="enter-btn" onclick="verifyAge()">ENTER</button>
     </div>
 
     <div id="app">
-        <div id="main-container" class="container">
-            <video id="v" class="content" playsinline loop></video>
-            <img id="i" class="content">
+        <div id="c1" class="container">
+            <video id="v1" class="content" playsinline loop></video>
+            <img id="i1" class="content" style="display:none">
         </div>
-        <div class="hint">Листай вверх, чтобы пропустить</div>
+        <div id="c2" class="container" style="transform: translateY(100%)">
+            <video id="v2" class="content" playsinline loop></video>
+            <img id="i2" class="content" style="display:none">
+        </div>
+        
+        <div class="wave-container"><div class="wave"></div></div>
     </div>
 
     <script>
         const USER = 'Tailznic';
         const REPO = 'tailznic.github.io';
         const FOLDER = 'media';
+        
         let files = [], queue = [];
-        let touchStartY = 0;
-        let isAnimating = false;
-
-        const container = document.getElementById('main-container');
-        const v = document.getElementById('v'), i = document.getElementById('i');
+        let startY = 0, currentY = 0;
+        let isDragging = false;
+        let currentIdx = 1;
 
         function verifyAge() {
             document.getElementById('age-gate').style.display = 'none';
             document.getElementById('app').style.display = 'block';
-            // Звук разблокируется после этого клика
             init();
         }
 
@@ -82,75 +86,98 @@
                 const data = await res.json();
                 files = data.filter(f => f.type === 'file').map(f => f.download_url);
                 queue = [...files].sort(() => Math.random() - 0.5);
-                if(queue.length > 0) loadContent(queue.pop());
-            } catch (e) { console.error("Ошибка загрузки"); }
+                
+                prepareContainer(1, queue.pop());
+                setTimeout(() => prepareContainer(2, queue.pop()), 500);
+            } catch (e) { console.error("API Error"); }
         }
 
-        function loadContent(url) {
+        function prepareContainer(num, url) {
             if (!url) return;
+            const video = document.getElementById('v' + num);
+            const img = document.getElementById('i' + num);
             const ext = url.split('.').pop().toLowerCase();
-            
-            v.style.display = i.style.display = 'none';
-            v.pause(); v.src = ""; i.src = "";
-
+            video.style.display = img.style.display = 'none';
+            video.pause(); video.src = ""; img.src = "";
             if (['mp4', 'webm', 'mov'].includes(ext)) {
-                v.src = url; 
-                v.style.display = 'block'; 
-                v.onloadeddata = () => {
-                    // Пробуем включить звук после взаимодействия
-                    v.muted = false; 
-                    v.play().catch(err => {
-                        console.log("Автоплей со звуком заблокирован, включаем без звука");
-                        v.muted = true;
-                        v.play();
-                    });
-                    finishTransition();
-                };
+                video.src = url; video.style.display = 'block'; video.load();
             } else {
-                i.src = url; 
-                i.style.display = 'block';
-                i.onload = () => finishTransition();
+                img.src = url; img.style.display = 'block';
             }
         }
 
-        function triggerSwipe() {
-            if (isAnimating) return;
-            isAnimating = true;
+        const app = document.getElementById('app');
 
-            container.classList.add('slide-up');
-
-            setTimeout(() => {
-                if (queue.length === 0) queue = [...files].sort(() => Math.random() - 0.5);
-                container.style.transition = 'none';
-                container.classList.remove('slide-up');
-                container.classList.add('slide-down');
-                loadContent(queue.pop());
-            }, 400);
-        }
-
-        function finishTransition() {
-            setTimeout(() => {
-                container.style.transition = 'transform 0.4s cubic-bezier(0.45, 0, 0.55, 1)';
-                container.classList.remove('slide-down');
-                isAnimating = false;
-            }, 50);
-        }
-
-        // Запрет паузы
-        v.onclick = (e) => e.preventDefault();
-        i.onclick = (e) => e.preventDefault();
-
-        // Свайпы
-        window.addEventListener('touchstart', e => touchStartY = e.changedTouches[0].screenY);
-        window.addEventListener('touchend', e => {
-            let touchEndY = e.changedTouches[0].screenY;
-            if (Math.abs(touchStartY - touchEndY) > 50) triggerSwipe();
+        app.addEventListener('touchstart', e => {
+            if (isDragging) return;
+            startY = e.touches[0].clientY;
+            isDragging = true;
+            document.getElementById('c'+currentIdx).style.transition = 'none';
         });
 
-        // Колесо мыши
+        app.addEventListener('touchmove', e => {
+            if (!isDragging) return;
+            currentY = e.touches[0].clientY;
+            let diff = currentY - startY;
+            
+            // Если тянем вниз — ограничиваем движение (сопротивление)
+            if (diff > 0) diff = Math.pow(diff, 0.6); 
+            
+            const activeCont = document.getElementById('c' + currentIdx);
+            activeCont.style.transform = `translateY(${diff}px)`;
+        });
+
+        app.addEventListener('touchend', e => {
+            if (!isDragging) return;
+            isDragging = false;
+            let diff = currentY - startY;
+            const activeCont = document.getElementById('c' + currentIdx);
+
+            // Если свайпнули вверх достаточно сильно
+            if (diff < -100) {
+                completeSwipe();
+            } else {
+                // Возврат на место
+                activeCont.style.transition = 'transform 0.3s ease-out';
+                activeCont.style.transform = `translateY(0)`;
+            }
+        });
+
+        function completeSwipe() {
+            const activeCont = document.getElementById('c' + currentIdx);
+            const nextIdx = currentIdx === 1 ? 2 : 1;
+            const nextCont = document.getElementById('c' + nextIdx);
+
+            activeCont.style.transition = 'transform 0.3s ease-in';
+            activeCont.style.transform = 'translateY(-100%)';
+
+            // Запуск нового
+            const nextVideo = document.getElementById('v' + nextIdx);
+            if (nextVideo.src) {
+                nextVideo.muted = false;
+                nextVideo.play().catch(() => { nextVideo.muted = true; nextVideo.play(); });
+            }
+
+            nextCont.style.transition = 'transform 0.3s ease-out';
+            nextCont.style.transform = 'translateY(0)';
+
+            setTimeout(() => {
+                activeCont.style.transition = 'none';
+                activeCont.style.transform = 'translateY(100%)';
+                const oldVideo = document.getElementById('v' + currentIdx);
+                oldVideo.pause();
+
+                if (queue.length === 0) queue = [...files].sort(() => Math.random() - 0.5);
+                prepareContainer(currentIdx, queue.pop());
+
+                currentIdx = nextIdx;
+            }, 350);
+        }
+
+        // Поддержка колесика
         window.addEventListener('wheel', e => {
-            if (Math.abs(e.deltaY) > 10) triggerSwipe();
-        }, { passive: true });
+            if (e.deltaY > 50) completeSwipe();
+        });
     </script>
 </body>
 </html>
