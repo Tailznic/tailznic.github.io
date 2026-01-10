@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Media Viewer</title>
     <style>
-        body, html { margin: 0; padding: 0; height: 100%; width: 100%; background: #000; overflow: hidden; font-family: sans-serif; }
+        body, html { margin: 0; padding: 0; height: 100%; width: 100%; background: #000; overflow: hidden; font-family: sans-serif; color: white; }
         #app { position: relative; width: 100%; height: 100%; display: none; overflow: hidden; }
         
         .container {
@@ -16,50 +16,46 @@
 
         .content { max-height: 100vh; max-width: 100vw; object-fit: contain; }
 
-        /* Состояния анимации */
+        /* Анимации сдвига */
         .slide-up { transform: translateY(-100%); }
         .slide-down { transform: translateY(100%); }
 
-        /* Подсказка внизу */
+        /* Подсказка */
         .hint {
-            position: absolute; bottom: 20px; width: 100%; text-align: center;
-            color: rgba(255, 255, 255, 0.2); /* Очень бледный текст */
-            font-size: 11px; text-transform: uppercase; letter-spacing: 2px;
+            position: absolute; bottom: 30px; width: 100%; text-align: center;
+            color: rgba(255, 255, 255, 0.4); font-size: 12px; 
+            text-transform: uppercase; letter-spacing: 2px;
             pointer-events: none; z-index: 10;
-            animation: pulse 2s infinite;
         }
 
-        @keyframes pulse {
-            0% { opacity: 0.2; }
-            50% { opacity: 0.5; }
-            100% { opacity: 0.2; }
-        }
-
+        /* Экран подтверждения (Откат дизайна) */
         #age-gate {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: #0a0a0a; z-index: 1000; display: flex; flex-direction: column;
-            justify-content: center; align-items: center; text-align: center;
+            background: #000; z-index: 1000; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; text-align: center; padding: 20px;
         }
-        #age-gate p { font-size: 13px; margin-bottom: 20px; color: #333; letter-spacing: 0.5px; }
+        #age-gate h1 { color: #fe2c55; font-size: 40px; margin: 0 0 15px 0; }
+        #age-gate p { font-size: 16px; margin-bottom: 30px; color: #ccc; line-height: 1.5; }
         #enter-btn { 
-            background: transparent; border: 1px solid #222; color: #444; padding: 10px 25px; 
-            border-radius: 2px; font-size: 12px; cursor: pointer; text-transform: uppercase;
+            background: #fe2c55; border: none; color: white; padding: 15px 40px; 
+            border-radius: 30px; font-size: 16px; font-weight: bold; cursor: pointer;
         }
     </style>
 </head>
 <body>
 
     <div id="age-gate">
-        <p>CONFIRM AGE TO PROCEED</p>
-        <button id="enter-btn" onclick="verifyAge()">Enter</button>
+        <h1>18+</h1>
+        <p>Контент может содержать ненормативную лексику.<br>Вам есть 18 лет?</p>
+        <button id="enter-btn" onclick="verifyAge()">ДА, ВОЙТИ</button>
     </div>
 
     <div id="app">
         <div id="main-container" class="container">
-            <video id="v" class="content" playsinline loop muted></video>
+            <video id="v" class="content" playsinline loop></video>
             <img id="i" class="content">
         </div>
-        <div class="hint">Swipe up to skip</div>
+        <div class="hint">Листай вверх, чтобы пропустить</div>
     </div>
 
     <script>
@@ -76,6 +72,7 @@
         function verifyAge() {
             document.getElementById('age-gate').style.display = 'none';
             document.getElementById('app').style.display = 'block';
+            // Звук разблокируется после этого клика
             init();
         }
 
@@ -85,8 +82,8 @@
                 const data = await res.json();
                 files = data.filter(f => f.type === 'file').map(f => f.download_url);
                 queue = [...files].sort(() => Math.random() - 0.5);
-                loadContent(queue.pop());
-            } catch (e) { console.log("error"); }
+                if(queue.length > 0) loadContent(queue.pop());
+            } catch (e) { console.error("Ошибка загрузки"); }
         }
 
         function loadContent(url) {
@@ -100,7 +97,13 @@
                 v.src = url; 
                 v.style.display = 'block'; 
                 v.onloadeddata = () => {
-                    v.play().catch(() => {});
+                    // Пробуем включить звук после взаимодействия
+                    v.muted = false; 
+                    v.play().catch(err => {
+                        console.log("Автоплей со звуком заблокирован, включаем без звука");
+                        v.muted = true;
+                        v.play();
+                    });
                     finishTransition();
                 };
             } else {
@@ -133,18 +136,21 @@
             }, 50);
         }
 
+        // Запрет паузы
         v.onclick = (e) => e.preventDefault();
         i.onclick = (e) => e.preventDefault();
 
+        // Свайпы
         window.addEventListener('touchstart', e => touchStartY = e.changedTouches[0].screenY);
         window.addEventListener('touchend', e => {
             let touchEndY = e.changedTouches[0].screenY;
-            if (Math.abs(touchStartY - touchEndY) > 40) triggerSwipe();
+            if (Math.abs(touchStartY - touchEndY) > 50) triggerSwipe();
         });
 
+        // Колесо мыши
         window.addEventListener('wheel', e => {
             if (Math.abs(e.deltaY) > 10) triggerSwipe();
-        });
+        }, { passive: true });
     </script>
 </body>
 </html>
