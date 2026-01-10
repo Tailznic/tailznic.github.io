@@ -30,7 +30,6 @@
             pointer-events: none; z-index: 10;
         }
 
-        /* РЕАЛЬНЫЙ ПРОГРЕСС-БАР */
         .progress-wrapper {
             position: absolute; bottom: 30px; left: 50%;
             transform: translateX(-50%);
@@ -47,7 +46,7 @@
         }
 
         #progress-fill {
-            width: 0%; /* Управляется через JS */
+            width: 0%;
             height: 100%;
             background: #fff;
             transition: width 0.2s ease-out;
@@ -102,7 +101,7 @@
         const REPO = 'tailznic.github.io';
         const FOLDER = 'media';
         
-        let files = [], history = [], historyIdx = -1;
+        let allFiles = [], unviewedFiles = [], history = [], historyIdx = -1;
         let startY = 0, currentY = 0, isDragging = false, currentIdx = 1;
         const fill = document.getElementById('progress-fill');
 
@@ -112,29 +111,47 @@
             init();
         }
 
+        // Работа с локальным хранилищем
+        function getSeenFiles() {
+            const seen = localStorage.getItem('seen_media');
+            return seen ? JSON.parse(seen) : [];
+        }
+
+        function markAsSeen(url) {
+            let seen = getSeenFiles();
+            if (!seen.includes(url)) {
+                seen.push(url);
+                localStorage.setItem('seen_media', JSON.stringify(seen));
+            }
+        }
+
         async function init() {
             try {
                 const res = await fetch(`https://api.github.com/repos/${USER}/${REPO}/contents/${FOLDER}`);
                 const data = await res.json();
-                files = data.filter(f => f.type === 'file').map(f => f.download_url);
-                files.sort(() => Math.random() - 0.5);
+                allFiles = data.filter(f => f.type === 'file').map(f => f.download_url);
+                
+                const seen = getSeenFiles();
+                unviewedFiles = allFiles.filter(url => !seen.includes(url));
+
+                // Если все видео пересмотрены, сбрасываем историю (опционально)
+                if (unviewedFiles.length === 0) {
+                    unviewedFiles = [...allFiles];
+                    localStorage.removeItem('seen_media');
+                }
+
+                unviewedFiles.sort(() => Math.random() - 0.5);
                 loadNextInHistory();
             } catch (e) { console.error("Error"); }
         }
 
-        // Функция обновления полоски
         function updateProgress(videoElement) {
-            videoElement.addEventListener('progress', () => {
-                if (videoElement.buffered.length > 0) {
-                    const bufferedEnd = videoElement.buffered.end(videoElement.buffered.length - 1);
-                    const duration = videoElement.duration;
-                    if (duration > 0) {
-                        const percent = (bufferedEnd / duration) * 100;
-                        fill.style.width = percent + "%";
-                    }
+            videoElement.ontimeupdate = () => {
+                if (videoElement.duration) {
+                    const percent = (videoElement.currentTime / videoElement.duration) * 100;
+                    fill.style.width = percent + "%";
                 }
-            });
-            // Сброс при старте нового
+            };
             videoElement.addEventListener('loadstart', () => fill.style.width = "0%");
         }
 
@@ -156,15 +173,22 @@
 
         function loadNextInHistory() {
             historyIdx++;
-            if (!history[historyIdx]) history.push(files[Math.floor(Math.random() * files.length)]);
+            if (!history[historyIdx]) {
+                const nextUrl = unviewedFiles.length > 0 ? unviewedFiles.shift() : allFiles[Math.floor(Math.random() * allFiles.length)];
+                history.push(nextUrl);
+                markAsSeen(nextUrl);
+            }
             prepareContainer(currentIdx, history[historyIdx]);
-            let nextPre = history[historyIdx + 1] || files[Math.floor(Math.random() * files.length)];
+            
+            // Прелоад
+            let nextPre = history[historyIdx + 1] || unviewedFiles[0] || allFiles[Math.floor(Math.random() * allFiles.length)];
             prepareContainer(currentIdx === 1 ? 2 : 1, nextPre);
         }
 
         const app = document.getElementById('app');
         app.addEventListener('touchstart', e => {
             startY = e.touches[0].clientY;
+            currentY = startY;
             isDragging = true;
             document.getElementById('c' + currentIdx).style.transition = 'none';
         });
@@ -200,11 +224,15 @@
 
             if (dir > 0) {
                 historyIdx++;
-                if (!history[historyIdx]) history.push(files[Math.floor(Math.random() * files.length)]);
+                if (!history[historyIdx]) {
+                    const nextUrl = unviewedFiles.length > 0 ? unviewedFiles.shift() : allFiles[Math.floor(Math.random() * allFiles.length)];
+                    history.push(nextUrl);
+                    markAsSeen(nextUrl);
+                }
             } else { historyIdx--; }
 
             prepareContainer(nextLayerIdx, history[historyIdx]);
-            updateProgress(nextVideo); // Переключаем трекер на новое видео
+            updateProgress(nextVideo);
 
             setTimeout(() => {
                 nextCont.style.transition = 'transform 0.3s cubic-bezier(0.23, 1, 0.32, 1)';
@@ -218,6 +246,8 @@
                     activeCont.style.transform = dir > 0 ? 'translateY(100%)' : 'translateY(-100%)';
                     document.getElementById('v' + currentIdx).pause();
                     currentIdx = nextLayerIdx;
+                    let preUrl = history[historyIdx + 1] || unviewedFiles[0] || allFiles[Math.floor(Math.random() * allFiles.length)];
+                    prepareContainer(currentIdx === 1 ? 2 : 1, preUrl);
                 }, 350);
             }, 50);
         }
