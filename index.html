@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Media Player</title>
+    <title>Tailznic Media Player</title>
     <style>
-        /* Оформление в стиле TikTok: черный фон и контент по центру */
+        /* Стиль плеера: черный фон, контент на весь экран */
         body, html {
             margin: 0; padding: 0;
             height: 100%; width: 100%;
@@ -13,37 +13,46 @@
             display: flex; justify-content: center; align-items: center;
             overflow: hidden;
             cursor: pointer;
-            font-family: sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
 
         .content {
             max-height: 100vh;
             max-width: 100vw;
-            display: none; /* Скрыто до загрузки первого файла */
+            display: none;
             object-fit: contain;
         }
 
-        /* Подсказка, если файлов еще нет */
         #loader {
-            color: #555;
-            font-size: 14px;
+            color: #fff;
+            font-size: 16px;
+            text-align: center;
+        }
+
+        /* Маленькая подсказка снизу */
+        .hint {
+            position: fixed;
+            bottom: 20px;
+            color: rgba(255, 255, 255, 0.3);
+            font-size: 12px;
+            pointer-events: none;
         }
     </style>
 </head>
 <body onclick="showNext()">
 
-    <div id="loader">Загрузка медиа...</div>
+    <div id="loader">Загрузка файлов из /media...</div>
 
-    <video id="vPlayer" class="content" autoplay playsinline muted></video>
-    
+    <video id="vPlayer" class="content" autoplay playsinline></video>
     <img id="iPlayer" class="content" alt="Media">
 
+    <div class="hint">Нажми на экран для пропуска</div>
+
     <script>
-        // === НАСТРОЙКИ ===
-        const USERNAME = 'Tailznic';      // Твой логин на GitHub
-        const REPO = 'tailznic.github.io';   // Название твоего репозитория
-        const FOLDER = 'media';             // Папка, куда ты будешь кидать файлы
-        // ================
+        // Твои настройки уже вписаны
+        const USERNAME = 'Tailznic';      
+        const REPO = 'tailznic.github.io'; 
+        const FOLDER = 'media';             
 
         let mediaFiles = [];
         let queue = [];
@@ -51,17 +60,19 @@
         const iPlayer = document.getElementById('iPlayer');
         const loader = document.getElementById('loader');
 
-        // Функция получения списка файлов через GitHub API
         async function fetchMediaList() {
+            // Запрашиваем список файлов через API GitHub
             const url = `https://api.github.com/repos/${USERNAME}/${REPO}/contents/${FOLDER}`;
             
             try {
                 const response = await fetch(url);
-                if (!response.ok) throw new Error('Папка не найдена или репозиторий приватный');
+                if (!response.ok) {
+                    throw new Error('Убедись, что папка "media" существует и в ней есть файлы');
+                }
                 
                 const data = await response.json();
                 
-                // Фильтруем файлы (видео, фото, гифки)
+                // Берем только файлы (не папки)
                 mediaFiles = data
                     .filter(file => file.type === 'file')
                     .map(file => file.download_url);
@@ -70,18 +81,18 @@
                     loader.style.display = 'none';
                     showNext();
                 } else {
-                    loader.innerText = 'Папка "media" пуста. Добавь туда файлы!';
+                    loader.innerText = 'Папка "media" пуста. Загрузи туда видео или фото.';
                 }
             } catch (error) {
                 console.error(error);
-                loader.innerText = 'Ошибка: проверь настройки в коде (логин и репо)';
+                loader.innerHTML = `Ошибка доступа к API.<br><small>${error.message}</small>`;
             }
         }
 
         function showNext() {
             if (mediaFiles.length === 0) return;
 
-            // Если очередь пуста, перемешиваем список заново (не даем повторяться)
+            // Рандом без повторов: если очередь пуста, берем весь список и перемешиваем
             if (queue.length === 0) {
                 queue = [...mediaFiles].sort(() => Math.random() - 0.5);
             }
@@ -89,31 +100,38 @@
             const fileUrl = queue.pop();
             const ext = fileUrl.split('.').pop().toLowerCase().split('?')[0];
 
-            // Сброс состояния
+            // Скрываем всё перед показом следующего
             vPlayer.style.display = 'none';
             iPlayer.style.display = 'none';
             vPlayer.pause();
             vPlayer.src = "";
 
-            // Проверка расширения и отображение нужного элемента
+            // Проверка формата
             if (['mp4', 'webm', 'mov'].includes(ext)) {
                 vPlayer.src = fileUrl;
                 vPlayer.style.display = 'block';
-                vPlayer.play().catch(e => console.log("Автоплей заблокирован, нужен клик"));
+                // Включаем звук (браузер может заблокировать первый автоплей)
+                vPlayer.muted = false; 
+                vPlayer.play().catch(() => {
+                    console.log("Автоплей заблокирован. Кликни по экрану.");
+                    vPlayer.muted = true; // Если не дали включить со звуком, включаем без звука
+                    vPlayer.play();
+                });
             } else if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif'].includes(ext)) {
                 iPlayer.src = fileUrl;
                 iPlayer.style.display = 'block';
             } else {
-                // Если попался неизвестный файл, пропускаем его и идем к следующему
+                // Если попался странный файл — просто идем дальше
                 showNext();
             }
         }
 
-        // Автоматический переход после завершения видео
+        // Авто-переход, когда видео досмотрено
         vPlayer.onended = showNext;
 
-        // Запуск процесса
+        // Запуск
         fetchMediaList();
     </script>
 </body>
 </html>
+
