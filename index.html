@@ -9,51 +9,72 @@
         body, html { 
             margin: 0; padding: 0; height: 100dvh; width: 100%; 
             background: #000; overflow: hidden; 
-            font-family: -apple-system, sans-serif; color: #777; -webkit-user-select: none; touch-action: none;
+            font-family: -apple-system, sans-serif; 
+            color: #777; -webkit-user-select: none; touch-action: none;
         }
+        
         #app { position: relative; width: 100%; height: 100dvh; display: none; overflow: hidden; }
+        
         .container {
             position: absolute; width: 100%; height: 100%;
             display: flex; justify-content: center; align-items: center;
             will-change: transform; background: #000;
         }
+
         .content { max-height: 100%; max-width: 100%; object-fit: contain; pointer-events: none; }
-        
-        /* СООБЩЕНИЕ ОБ ОШИБКЕ */
-        #error-msg {
+
+        /* ПЛАШКА ОШИБКИ */
+        #error-overlay {
             position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: rgba(255, 0, 0, 0.1); border: 1px solid red; color: red;
-            padding: 15px 25px; font-family: monospace; font-size: 12px;
-            display: none; z-index: 2000; text-transform: uppercase; letter-spacing: 2px;
+            color: #555; font-size: 10px; font-family: monospace;
+            text-transform: uppercase; letter-spacing: 2px;
+            display: none; z-index: 100;
         }
 
         .hint {
             position: absolute; bottom: 30px; width: 100%; text-align: center;
-            color: rgba(255, 255, 255, 0.2); font-size: 10px; text-transform: uppercase; z-index: 10;
+            color: rgba(255, 255, 255, 0.2); font-size: 10px; 
+            text-transform: uppercase; letter-spacing: 1px;
+            pointer-events: none; z-index: 10;
         }
+
         .tiktok-progress-container {
             position: absolute; bottom: 0; left: 0; width: 100%; height: 4px;
             background: rgba(255, 255, 255, 0.1); z-index: 999;
         }
+        
         #progress-fill {
             width: 0%; height: 100%;
             background: linear-gradient(90deg, #fff, #ccc, #fff);
             background-size: 200% 100%;
             animation: wave-animation 2s linear infinite;
+            box-shadow: 0 0 10px rgba(255,255,255,0.5);
+            transition: width 0.1s linear;
         }
-        @keyframes wave-animation { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+        @keyframes wave-animation {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
 
         #age-gate {
             position: fixed; top: 0; left: 0; width: 100%; height: 100dvh;
-            background: #080808; z-index: 1000; display: flex; flex-direction: column;
-            justify-content: center; align-items: center; text-align: center; padding: 40px;
+            background: #080808; z-index: 1000; 
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center; 
+            text-align: center; padding: 40px;
         }
         .gate-text { font-size: 12px; color: #444; line-height: 1.6; max-width: 320px; margin-bottom: 25px; }
-        #enter-btn { background: transparent; border: 1px solid #222; color: #555; padding: 10px 20px; border-radius: 2px; font-size: 11px; cursor: pointer; text-transform: uppercase; }
+        #enter-btn { 
+            background: transparent; border: 1px solid #222; color: #555; padding: 10px 20px; 
+            border-radius: 2px; font-size: 11px; cursor: pointer; text-transform: uppercase;
+            letter-spacing: 1px;
+        }
     </style>
 </head>
 <body>
-    <div id="error-msg">Media Load Error. Skipping...</div>
+
+    <div id="error-overlay">Media Load Error. Skipping...</div>
 
     <div id="age-gate">
         <div class="gate-text">
@@ -78,7 +99,7 @@
         let allFiles = [], unviewedFiles = [], history = [], historyIdx = -1;
         let startY = 0, currentY = 0, isDragging = false, currentIdx = 1;
         const fill = document.getElementById('progress-fill');
-        const errBox = document.getElementById('error-msg');
+        const errTag = document.getElementById('error-overlay');
 
         function verifyAge() {
             document.getElementById('age-gate').style.display = 'none';
@@ -95,20 +116,23 @@
                 unviewedFiles = allFiles.filter(url => !seen.includes(url));
                 if (unviewedFiles.length === 0) { unviewedFiles = [...allFiles]; localStorage.removeItem('seen_media'); }
                 unviewedFiles.sort(() => Math.random() - 0.5);
-                
-                historyIdx = 0;
-                const firstUrl = unviewedFiles.shift();
-                history.push(firstUrl);
-                prepareContainer(1, firstUrl);
-                
-                const v = document.getElementById('v1');
-                // ГАРАНТИЯ ЗВУКА: Включаем после жеста
-                v.muted = false;
-                v.play().catch(() => { v.muted = true; v.play(); });
-                
-                saveSeen(firstUrl);
-                prepareContainer(2, unviewedFiles[0] || allFiles[0]);
+                startFirstVideo();
             } catch (e) {}
+        }
+
+        function startFirstVideo() {
+            historyIdx = 0;
+            const url = unviewedFiles.shift() || allFiles[0];
+            history.push(url);
+            saveSeen(url);
+            prepareContainer(1, url);
+            const v = document.getElementById('v1');
+            v.oncanplay = () => {
+                v.muted = false; // Пытаемся включить звук сразу
+                v.play().catch(() => { v.muted = true; v.play(); });
+                v.oncanplay = null;
+            };
+            prepareContainer(2, unviewedFiles[0] || allFiles[1]);
         }
 
         function saveSeen(url) {
@@ -116,40 +140,38 @@
             if (!seen.includes(url)) { seen.push(url); localStorage.setItem('seen_media', JSON.stringify(seen)); }
         }
 
-        function showError() {
-            errBox.style.display = 'block';
-            setTimeout(() => {
-                errBox.style.display = 'none';
-                slide(1); // Авто-скип при ошибке
-            }, 3000);
-        }
-
         function prepareContainer(num, url) {
+            if (!url) return;
             const v = document.getElementById('v' + num), i = document.getElementById('i' + num);
             v.style.display = i.style.display = 'none';
-            v.onerror = null;
+            v.onerror = () => { if(num === currentIdx) triggerError(); };
 
-            if (v.src !== url) { v.src = url; v.load(); }
-            
+            if (v.src !== url) { v.pause(); v.src = url; v.load(); }
             if (url.match(/\.(mp4|webm|mov|m4v)$/i)) {
                 v.style.display = 'block';
-                v.onerror = () => { if(num === currentIdx) showError(); };
                 if (num === currentIdx) v.ontimeupdate = () => fill.style.width = (v.currentTime/v.duration*100) + '%';
-            } else { 
-                i.src = url; i.style.display = 'block'; 
-                i.onerror = () => { if(num === currentIdx) showError(); };
-                if (num === currentIdx) fill.style.width = '100%'; 
+            } else {
+                i.src = url; i.style.display = 'block';
+                if (num === currentIdx) fill.style.width = "100%";
             }
         }
 
+        function triggerError() {
+            errTag.style.display = 'block';
+            setTimeout(() => { errTag.style.display = 'none'; changeVideo(1); }, 2000);
+        }
+
         const app = document.getElementById('app');
-        app.addEventListener('touchstart', e => { startY = e.touches[0].clientY; isDragging = true; document.getElementById('c'+currentIdx).style.transition = 'none'; });
+        app.addEventListener('touchstart', e => {
+            startY = e.touches[0].clientY; isDragging = true;
+            document.getElementById('c' + currentIdx).style.transition = 'none';
+        });
+
         app.addEventListener('touchmove', e => {
             if (!isDragging) return;
             currentY = e.touches[0].clientY;
             let diff = currentY - startY;
-            if (diff > 0 && historyIdx === 0) diff /= 3;
-            document.getElementById('c'+currentIdx).style.transform = `translateY(${diff}px)`;
+            document.getElementById('c' + currentIdx).style.transform = `translateY(${diff}px)`;
             e.preventDefault();
         }, {passive: false});
 
@@ -157,20 +179,20 @@
             if (!isDragging) return;
             isDragging = false;
             let diff = currentY - startY;
-            if (diff < -80) slide(1);
-            else if (diff > 80 && historyIdx > 0) slide(-1);
+            if (diff < -80) changeVideo(1);
+            else if (diff > 80 && historyIdx > 0) changeVideo(-1);
             else {
-                let c = document.getElementById('c'+currentIdx);
-                c.style.transition = 'transform 0.3s ease-out';
-                c.style.transform = 'translateY(0)';
+                let c = document.getElementById('c' + currentIdx);
+                c.style.transition = 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.1)';
+                c.style.transform = `translateY(0)`;
             }
         });
 
-        function slide(dir) {
+        function changeVideo(dir) {
             const oldIdx = currentIdx;
             const nextIdx = currentIdx === 1 ? 2 : 1;
-            const oldCont = document.getElementById('c'+oldIdx);
-            const nextCont = document.getElementById('c'+nextIdx);
+            const oldCont = document.getElementById('c' + oldIdx);
+            const nextCont = document.getElementById('c' + nextIdx);
 
             oldCont.style.transition = 'transform 0.3s ease-in';
             oldCont.style.transform = dir > 0 ? 'translateY(-100%)' : 'translateY(100%)';
@@ -178,33 +200,29 @@
             if (dir > 0) {
                 historyIdx++;
                 if (!history[historyIdx]) {
-                    const nextUrl = unviewedFiles.shift() || allFiles[Math.floor(Math.random()*allFiles.length)];
+                    const nextUrl = unviewedFiles.shift() || allFiles[Math.floor(Math.random() * allFiles.length)];
                     history.push(nextUrl);
                     saveSeen(nextUrl);
                 }
-            } else historyIdx--;
+            } else { historyIdx--; }
 
             prepareContainer(nextIdx, history[historyIdx]);
-            
-            nextCont.style.transition = 'none';
-            nextCont.style.transform = dir > 0 ? 'translateY(100%)' : 'translateY(-100%)';
-            
+
             setTimeout(() => {
-                nextCont.style.transition = 'transform 0.3s ease-out';
+                nextCont.style.transition = 'transform 0.3s cubic-bezier(0.23, 1, 0.32, 1)';
                 nextCont.style.transform = 'translateY(0)';
-                currentIdx = nextIdx;
-                const v = document.getElementById('v'+nextIdx);
-                if (v.src) {
-                    v.muted = false;
-                    v.play().catch(() => { v.muted = true; v.play(); });
-                }
-                
+                const v = document.getElementById('v' + nextIdx);
+                if (v.readyState >= 2) { v.muted = false; v.play().catch(() => { v.muted = true; v.play(); }); }
+
                 setTimeout(() => {
-                    document.getElementById('v'+oldIdx).pause();
-                    let pre = history[historyIdx+1] || unviewedFiles[0] || allFiles[0];
-                    prepareContainer(oldIdx, pre);
-                }, 300);
-            }, 10);
+                    oldCont.style.transition = 'none';
+                    oldCont.style.transform = dir > 0 ? 'translateY(100%)' : 'translateY(-100%)';
+                    document.getElementById('v' + oldIdx).pause();
+                    currentIdx = nextIdx;
+                    let pre = history[historyIdx + 1] || unviewedFiles[0] || allFiles[0];
+                    prepareContainer(oldIdx === 1 ? 1 : 2, pre);
+                }, 350);
+            }, 50);
         }
     </script>
 </body>
