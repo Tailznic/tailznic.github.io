@@ -9,64 +9,41 @@
         body, html { 
             margin: 0; padding: 0; height: 100dvh; width: 100%; 
             background: #000; overflow: hidden; 
-            font-family: -apple-system, sans-serif; 
-            color: #777; -webkit-user-select: none; touch-action: none;
+            font-family: -apple-system, sans-serif; color: #777; -webkit-user-select: none; touch-action: none;
         }
-        
         #app { position: relative; width: 100%; height: 100dvh; display: none; overflow: hidden; }
-        
         .container {
             position: absolute; width: 100%; height: 100%;
             display: flex; justify-content: center; align-items: center;
-            will-change: transform; background: #000; z-index: 1;
+            will-change: transform; background: #000;
         }
-
-        /* Контейнер, который мы тянем, должен быть выше остальных */
-        .active-layer { z-index: 10; }
-
         .content { max-height: 100%; max-width: 100%; object-fit: contain; pointer-events: none; }
-
         .hint {
             position: absolute; bottom: 30px; width: 100%; text-align: center;
-            color: rgba(255, 255, 255, 0.2); font-size: 10px; 
-            text-transform: uppercase; letter-spacing: 1px;
-            pointer-events: none; z-index: 100;
+            color: rgba(255, 255, 255, 0.2); font-size: 10px; text-transform: uppercase; z-index: 10;
         }
-
         .tiktok-progress-container {
             position: absolute; bottom: 0; left: 0; width: 100%; height: 4px;
             background: rgba(255, 255, 255, 0.1); z-index: 999;
         }
-        
         #progress-fill {
             width: 0%; height: 100%;
             background: linear-gradient(90deg, #fff, #ccc, #fff);
             background-size: 200% 100%;
             animation: wave-animation 2s linear infinite;
-            transition: width 0.1s linear;
         }
-
-        @keyframes wave-animation {
-            0% { background-position: 200% 0; }
-            100% { background-position: -200% 0; }
-        }
+        @keyframes wave-animation { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
         #age-gate {
             position: fixed; top: 0; left: 0; width: 100%; height: 100dvh;
-            background: #080808; z-index: 1000; 
-            display: flex; flex-direction: column;
-            justify-content: center; align-items: center; 
-            text-align: center; padding: 40px;
+            background: #080808; z-index: 1000; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; text-align: center; padding: 40px;
         }
         .gate-text { font-size: 12px; color: #444; line-height: 1.6; max-width: 320px; margin-bottom: 25px; }
-        #enter-btn { 
-            background: transparent; border: 1px solid #222; color: #555; padding: 10px 20px; 
-            border-radius: 2px; font-size: 11px; cursor: pointer; text-transform: uppercase;
-        }
+        #enter-btn { background: transparent; border: 1px solid #222; color: #555; padding: 10px 20px; border-radius: 2px; font-size: 11px; cursor: pointer; text-transform: uppercase; }
     </style>
 </head>
 <body>
-
     <div id="age-gate">
         <div class="gate-text">
             Контент на данном ресурсе может быть не предназначен для лиц, не достигших 18 лет. 
@@ -79,17 +56,14 @@
     </div>
 
     <div id="app">
-        <div id="c1" class="container active-layer"><video id="v1" class="content" playsinline loop></video><img id="i1" class="content" style="display:none"></div>
-        <div id="c2" class="container"><video id="v2" class="content" playsinline loop></video><img id="i2" class="content" style="display:none"></div>
+        <div id="c1" class="container"><video id="v1" class="content" playsinline loop></video><img id="i1" class="content" style="display:none"></div>
+        <div id="c2" class="container" style="transform: translateY(100%)"><video id="v2" class="content" playsinline loop></video><img id="i2" class="content" style="display:none"></div>
         <div class="hint">Свайп вверх, чтобы пропустить</div>
         <div class="tiktok-progress-container"><div id="progress-fill"></div></div>
     </div>
 
     <script>
-        const USER = 'Tailznic';
-        const REPO = 'tailznic.github.io';
-        const FOLDER = 'media';
-        
+        const USER = 'Tailznic', REPO = 'tailznic.github.io', FOLDER = 'media';
         let allFiles = [], unviewedFiles = [], history = [], historyIdx = -1;
         let startY = 0, currentY = 0, isDragging = false, currentIdx = 1;
         const fill = document.getElementById('progress-fill');
@@ -100,139 +74,105 @@
             init();
         }
 
-        function getSeenFiles() {
-            const seen = localStorage.getItem('seen_media');
-            return seen ? JSON.parse(seen) : [];
-        }
-
-        function markAsSeen(url) {
-            let seen = getSeenFiles();
-            if (!seen.includes(url)) {
-                seen.push(url);
-                localStorage.setItem('seen_media', JSON.stringify(seen));
-            }
-        }
-
         async function init() {
             try {
                 const res = await fetch(`https://api.github.com/repos/${USER}/${REPO}/contents/${FOLDER}`);
                 const data = await res.json();
                 allFiles = data.filter(f => f.type === 'file').map(f => f.download_url);
-                const seen = getSeenFiles();
+                const seen = JSON.parse(localStorage.getItem('seen_media') || '[]');
                 unviewedFiles = allFiles.filter(url => !seen.includes(url));
                 if (unviewedFiles.length === 0) { unviewedFiles = [...allFiles]; localStorage.removeItem('seen_media'); }
                 unviewedFiles.sort(() => Math.random() - 0.5);
-                startFirstVideo();
-            } catch (e) { console.error("Error"); }
+                
+                historyIdx = 0;
+                const firstUrl = unviewedFiles.shift();
+                history.push(firstUrl);
+                prepareContainer(1, firstUrl);
+                const v = document.getElementById('v1');
+                v.play().catch(() => { v.muted = true; v.play(); });
+                saveSeen(firstUrl);
+                
+                // Подгружаем второе
+                prepareContainer(2, unviewedFiles[0] || allFiles[0]);
+            } catch (e) {}
         }
 
-        function startFirstVideo() {
-            historyIdx = 0;
-            const url = unviewedFiles.shift() || allFiles[0];
-            history.push(url);
-            markAsSeen(url);
-            prepareContainer(1, url);
-            const v = document.getElementById('v1');
-            v.oncanplay = () => { v.play().catch(() => { v.muted = true; v.play(); }); v.oncanplay = null; };
-        }
-
-        function updateProgress(videoElement) {
-            videoElement.ontimeupdate = () => {
-                if (videoElement.duration) {
-                    fill.style.width = (videoElement.currentTime / videoElement.duration * 100) + "%";
-                }
-            };
+        function saveSeen(url) {
+            let seen = JSON.parse(localStorage.getItem('seen_media') || '[]');
+            if (!seen.includes(url)) { seen.push(url); localStorage.setItem('seen_media', JSON.stringify(seen)); }
         }
 
         function prepareContainer(num, url) {
-            if (!url) return;
-            const video = document.getElementById('v' + num), img = document.getElementById('i' + num);
-            const ext = url.split('.').pop().toLowerCase();
-            video.style.display = img.style.display = 'none';
-            if (video.src !== url) { video.pause(); video.src = url; video.load(); }
-            if (['mp4', 'webm', 'mov', 'm4v'].includes(ext)) {
-                video.style.display = 'block';
-                if (num === currentIdx) updateProgress(video);
-            } else {
-                img.src = url; img.style.display = 'block';
-                if (num === currentIdx) fill.style.width = "100%";
-            }
+            const v = document.getElementById('v' + num), i = document.getElementById('i' + num);
+            v.style.display = i.style.display = 'none';
+            if (v.src !== url) { v.src = url; v.load(); }
+            if (url.match(/\.(mp4|webm|mov|m4v)$/i)) {
+                v.style.display = 'block';
+                if (num === currentIdx) v.ontimeupdate = () => fill.style.width = (v.currentTime/v.duration*100) + '%';
+            } else { i.src = url; i.style.display = 'block'; if (num === currentIdx) fill.style.width = '100%'; }
         }
 
         const app = document.getElementById('app');
-        app.addEventListener('touchstart', e => {
-            startY = e.touches[0].clientY;
-            isDragging = true;
-            document.getElementById('c' + currentIdx).style.transition = 'none';
-        });
-
+        app.addEventListener('touchstart', e => { startY = e.touches[0].clientY; isDragging = true; document.getElementById('c'+currentIdx).style.transition = 'none'; });
         app.addEventListener('touchmove', e => {
             if (!isDragging) return;
             currentY = e.touches[0].clientY;
             let diff = currentY - startY;
-            
-            const nextIdx = currentIdx === 1 ? 2 : 1;
-            const nextCont = document.getElementById('c' + nextIdx);
-
-            if (diff < 0) { // Свайп вверх (вперед)
-                nextCont.style.transform = `translateY(${window.innerHeight + diff}px)`;
-                nextCont.style.zIndex = 20;
-            } else if (diff > 0 && historyIdx > 0) { // Свайп вниз (назад)
-                nextCont.style.transform = `translateY(${-window.innerHeight + diff}px)`;
-                nextCont.style.zIndex = 20;
-                prepareContainer(nextIdx, history[historyIdx - 1]);
-            }
-            
+            if (diff > 0 && historyIdx === 0) diff /= 3; // Сопротивление в начале
+            document.getElementById('c'+currentIdx).style.transform = `translateY(${diff}px)`;
             e.preventDefault();
         }, {passive: false});
 
-        app.addEventListener('touchend', e => {
+        app.addEventListener('touchend', () => {
             if (!isDragging) return;
             isDragging = false;
             let diff = currentY - startY;
-            const nextIdx = currentIdx === 1 ? 2 : 1;
-            
-            if (Math.abs(diff) > 80) {
-                if (diff < 0) changeVideo(1); // Вперед
-                else if (historyIdx > 0) changeVideo(-1); // Назад
-                else resetPosition();
-            } else { resetPosition(); }
+            if (diff < -80) slide(1);
+            else if (diff > 80 && historyIdx > 0) slide(-1);
+            else {
+                let c = document.getElementById('c'+currentIdx);
+                c.style.transition = 'transform 0.3s ease-out';
+                c.style.transform = 'translateY(0)';
+            }
         });
 
-        function resetPosition() {
+        function slide(dir) {
+            const oldIdx = currentIdx;
             const nextIdx = currentIdx === 1 ? 2 : 1;
-            document.getElementById('c' + nextIdx).style.transition = 'transform 0.3s ease-out';
-            document.getElementById('c' + nextIdx).style.transform = `translateY(100%)`;
-        }
+            const oldCont = document.getElementById('c'+oldIdx);
+            const nextCont = document.getElementById('c'+nextIdx);
 
-        function changeVideo(dir) {
-            const prevIdx = currentIdx;
-            const nextIdx = currentIdx === 1 ? 2 : 1;
-            const nextCont = document.getElementById('c' + nextIdx);
-            const nextVideo = document.getElementById('v' + nextIdx);
+            oldCont.style.transition = 'transform 0.3s ease-in';
+            oldCont.style.transform = dir > 0 ? 'translateY(-100%)' : 'translateY(100%)';
 
             if (dir > 0) {
                 historyIdx++;
                 if (!history[historyIdx]) {
-                    const nextUrl = unviewedFiles.shift() || allFiles[Math.floor(Math.random() * allFiles.length)];
+                    const nextUrl = unviewedFiles.shift() || allFiles[Math.floor(Math.random()*allFiles.length)];
                     history.push(nextUrl);
-                    markAsSeen(nextUrl);
+                    saveSeen(nextUrl);
                 }
-            } else { historyIdx--; }
+            } else historyIdx--;
 
             prepareContainer(nextIdx, history[historyIdx]);
-            updateProgress(nextVideo);
-
-            nextCont.style.transition = 'transform 0.3s cubic-bezier(0.23, 1, 0.32, 1)';
-            nextCont.style.transform = 'translateY(0)';
-
+            
+            nextCont.style.transition = 'none';
+            nextCont.style.transform = dir > 0 ? 'translateY(100%)' : 'translateY(-100%)';
+            
             setTimeout(() => {
-                document.getElementById('v' + prevIdx).pause();
-                document.getElementById('c' + prevIdx).classList.remove('active-layer');
-                nextCont.classList.add('active-layer');
+                nextCont.style.transition = 'transform 0.3s ease-out';
+                nextCont.style.transform = 'translateY(0)';
                 currentIdx = nextIdx;
-                if (nextVideo.src) nextVideo.play().catch(() => { nextVideo.muted = true; nextVideo.play(); });
-            }, 300);
+                const v = document.getElementById('v'+nextIdx);
+                if (v.src) v.play().catch(() => { v.muted = true; v.play(); });
+                
+                setTimeout(() => {
+                    document.getElementById('v'+oldIdx).pause();
+                    // Прелоад для следующего шага
+                    let pre = history[historyIdx+1] || unviewedFiles[0] || allFiles[0];
+                    prepareContainer(oldIdx, pre);
+                }, 300);
+            }, 10);
         }
     </script>
 </body>
