@@ -18,6 +18,15 @@
             will-change: transform; background: #000;
         }
         .content { max-height: 100%; max-width: 100%; object-fit: contain; pointer-events: none; }
+        
+        /* СООБЩЕНИЕ ОБ ОШИБКЕ */
+        #error-msg {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(255, 0, 0, 0.1); border: 1px solid red; color: red;
+            padding: 15px 25px; font-family: monospace; font-size: 12px;
+            display: none; z-index: 2000; text-transform: uppercase; letter-spacing: 2px;
+        }
+
         .hint {
             position: absolute; bottom: 30px; width: 100%; text-align: center;
             color: rgba(255, 255, 255, 0.2); font-size: 10px; text-transform: uppercase; z-index: 10;
@@ -44,6 +53,8 @@
     </style>
 </head>
 <body>
+    <div id="error-msg">Media Load Error. Skipping...</div>
+
     <div id="age-gate">
         <div class="gate-text">
             Контент на данном ресурсе может быть не предназначен для лиц, не достигших 18 лет. 
@@ -67,6 +78,7 @@
         let allFiles = [], unviewedFiles = [], history = [], historyIdx = -1;
         let startY = 0, currentY = 0, isDragging = false, currentIdx = 1;
         const fill = document.getElementById('progress-fill');
+        const errBox = document.getElementById('error-msg');
 
         function verifyAge() {
             document.getElementById('age-gate').style.display = 'none';
@@ -88,11 +100,13 @@
                 const firstUrl = unviewedFiles.shift();
                 history.push(firstUrl);
                 prepareContainer(1, firstUrl);
-                const v = document.getElementById('v1');
-                v.play().catch(() => { v.muted = true; v.play(); });
-                saveSeen(firstUrl);
                 
-                // Подгружаем второе
+                const v = document.getElementById('v1');
+                // ГАРАНТИЯ ЗВУКА: Включаем после жеста
+                v.muted = false;
+                v.play().catch(() => { v.muted = true; v.play(); });
+                
+                saveSeen(firstUrl);
                 prepareContainer(2, unviewedFiles[0] || allFiles[0]);
             } catch (e) {}
         }
@@ -102,14 +116,30 @@
             if (!seen.includes(url)) { seen.push(url); localStorage.setItem('seen_media', JSON.stringify(seen)); }
         }
 
+        function showError() {
+            errBox.style.display = 'block';
+            setTimeout(() => {
+                errBox.style.display = 'none';
+                slide(1); // Авто-скип при ошибке
+            }, 3000);
+        }
+
         function prepareContainer(num, url) {
             const v = document.getElementById('v' + num), i = document.getElementById('i' + num);
             v.style.display = i.style.display = 'none';
+            v.onerror = null;
+
             if (v.src !== url) { v.src = url; v.load(); }
+            
             if (url.match(/\.(mp4|webm|mov|m4v)$/i)) {
                 v.style.display = 'block';
+                v.onerror = () => { if(num === currentIdx) showError(); };
                 if (num === currentIdx) v.ontimeupdate = () => fill.style.width = (v.currentTime/v.duration*100) + '%';
-            } else { i.src = url; i.style.display = 'block'; if (num === currentIdx) fill.style.width = '100%'; }
+            } else { 
+                i.src = url; i.style.display = 'block'; 
+                i.onerror = () => { if(num === currentIdx) showError(); };
+                if (num === currentIdx) fill.style.width = '100%'; 
+            }
         }
 
         const app = document.getElementById('app');
@@ -118,7 +148,7 @@
             if (!isDragging) return;
             currentY = e.touches[0].clientY;
             let diff = currentY - startY;
-            if (diff > 0 && historyIdx === 0) diff /= 3; // Сопротивление в начале
+            if (diff > 0 && historyIdx === 0) diff /= 3;
             document.getElementById('c'+currentIdx).style.transform = `translateY(${diff}px)`;
             e.preventDefault();
         }, {passive: false});
@@ -164,11 +194,13 @@
                 nextCont.style.transform = 'translateY(0)';
                 currentIdx = nextIdx;
                 const v = document.getElementById('v'+nextIdx);
-                if (v.src) v.play().catch(() => { v.muted = true; v.play(); });
+                if (v.src) {
+                    v.muted = false;
+                    v.play().catch(() => { v.muted = true; v.play(); });
+                }
                 
                 setTimeout(() => {
                     document.getElementById('v'+oldIdx).pause();
-                    // Прелоад для следующего шага
                     let pre = history[historyIdx+1] || unviewedFiles[0] || allFiles[0];
                     prepareContainer(oldIdx, pre);
                 }, 300);
