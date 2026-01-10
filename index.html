@@ -9,7 +9,7 @@
         body, html { 
             margin: 0; padding: 0; height: 100dvh; width: 100%; 
             background: #000; overflow: hidden; 
-            font-family: monospace; /* Моноширинный шрифт для стиля консоли */
+            font-family: monospace;
             color: #777; -webkit-user-select: none; touch-action: none;
         }
         
@@ -30,39 +30,29 @@
             pointer-events: none; z-index: 10;
         }
 
-        /* ИНДИКАТОР В СТИЛЕ ПАКЕТНОГО МЕНЕДЖЕРА */
+        /* РЕАЛЬНЫЙ ПРОГРЕСС-БАР */
         .progress-wrapper {
             position: absolute; bottom: 30px; left: 50%;
             transform: translateX(-50%);
-            width: 250px; height: 20px;
+            width: 200px; height: 14px;
             display: flex; align-items: center;
-            justify-content: center;
             z-index: 999;
         }
         
         .progress-bar {
-            width: 100%; height: 6px;
+            width: 100%; height: 8px;
             background: #111;
-            border: 1px solid #222;
+            border: 1px solid #333;
             position: relative;
-            overflow: hidden;
-            border-radius: 0px;
         }
 
-        .progress-fill {
-            width: 30%; height: 100%;
+        #progress-fill {
+            width: 0%; /* Управляется через JS */
+            height: 100%;
             background: #fff;
-            position: absolute;
-            left: -30%;
-            animation: loading-bar 1.5s infinite ease-in-out;
+            transition: width 0.2s ease-out;
         }
 
-        @keyframes loading-bar {
-            0% { left: -30%; }
-            100% { left: 100%; }
-        }
-
-        /* Предупреждение 18+ */
         #age-gate {
             position: fixed; top: 0; left: 0; width: 100%; height: 100dvh;
             background: #080808; z-index: 1000; 
@@ -71,11 +61,9 @@
             text-align: center; padding: 30px;
         }
         .gate-text { font-size: 13px; color: #444; line-height: 1.6; max-width: 320px; margin-bottom: 25px; }
-        
         #enter-btn { 
             background: transparent; border: 1px solid #222; color: #555; padding: 12px 24px; 
             border-radius: 4px; font-size: 11px; cursor: pointer; text-transform: uppercase;
-            outline: none; -webkit-tap-highlight-color: transparent;
         }
     </style>
 </head>
@@ -83,11 +71,9 @@
 
     <div id="age-gate">
         <div class="gate-text">
-            Контент на данном ресурсе может быть не предназначен для лиц, не достигших 18 лет. 
-            Продолжая просмотр, вы подтверждаете свое совершеннолетие.
-            <br><br>
-            <i>This resource may contain content not intended for persons under the age of 18. 
-            By proceeding, you confirm that you are of legal age.</i>
+            Контент на данном ресурсе может быть не предназначен для лиц, не достигших 18 лет.<br>
+            Продолжая просмотр, вы подтверждаете свое совершеннолетие.<br><br>
+            <i>By proceeding, you confirm that you are of legal age.</i>
         </div>
         <button id="enter-btn" onclick="verifyAge()">Я подтверждаю, что мне есть 18 лет и более</button>
     </div>
@@ -106,7 +92,7 @@
         
         <div class="progress-wrapper">
             <div class="progress-bar">
-                <div class="progress-fill"></div>
+                <div id="progress-fill"></div>
             </div>
         </div>
     </div>
@@ -118,6 +104,7 @@
         
         let files = [], history = [], historyIdx = -1;
         let startY = 0, currentY = 0, isDragging = false, currentIdx = 1;
+        const fill = document.getElementById('progress-fill');
 
         function verifyAge() {
             document.getElementById('age-gate').style.display = 'none';
@@ -132,7 +119,23 @@
                 files = data.filter(f => f.type === 'file').map(f => f.download_url);
                 files.sort(() => Math.random() - 0.5);
                 loadNextInHistory();
-            } catch (e) { console.error("Error loading files"); }
+            } catch (e) { console.error("Error"); }
+        }
+
+        // Функция обновления полоски
+        function updateProgress(videoElement) {
+            videoElement.addEventListener('progress', () => {
+                if (videoElement.buffered.length > 0) {
+                    const bufferedEnd = videoElement.buffered.end(videoElement.buffered.length - 1);
+                    const duration = videoElement.duration;
+                    if (duration > 0) {
+                        const percent = (bufferedEnd / duration) * 100;
+                        fill.style.width = percent + "%";
+                    }
+                }
+            });
+            // Сброс при старте нового
+            videoElement.addEventListener('loadstart', () => fill.style.width = "0%");
         }
 
         function prepareContainer(num, url) {
@@ -141,30 +144,27 @@
             const ext = url.split('.').pop().toLowerCase();
             video.style.display = img.style.display = 'none';
             video.pause(); video.src = ""; img.src = "";
+            
             if (['mp4', 'webm', 'mov', 'm4v'].includes(ext)) {
                 video.src = url; video.style.display = 'block'; video.load();
+                if (num === currentIdx) updateProgress(video);
             } else {
                 img.src = url; img.style.display = 'block';
+                if (num === currentIdx) fill.style.width = "100%";
             }
         }
 
         function loadNextInHistory() {
             historyIdx++;
-            if (!history[historyIdx]) {
-                history.push(files[Math.floor(Math.random() * files.length)]);
-            }
+            if (!history[historyIdx]) history.push(files[Math.floor(Math.random() * files.length)]);
             prepareContainer(currentIdx, history[historyIdx]);
-            let preIdx = historyIdx + 1;
-            let nextPre = history[preIdx] || files[Math.floor(Math.random() * files.length)];
+            let nextPre = history[historyIdx + 1] || files[Math.floor(Math.random() * files.length)];
             prepareContainer(currentIdx === 1 ? 2 : 1, nextPre);
         }
 
         const app = document.getElementById('app');
-
         app.addEventListener('touchstart', e => {
-            if (isDragging) return;
             startY = e.touches[0].clientY;
-            currentY = startY;
             isDragging = true;
             document.getElementById('c' + currentIdx).style.transition = 'none';
         });
@@ -173,7 +173,6 @@
             if (!isDragging) return;
             currentY = e.touches[0].clientY;
             let diff = currentY - startY;
-            if (diff > 0 && historyIdx === 0) diff = Math.pow(diff, 0.6);
             document.getElementById('c' + currentIdx).style.transform = `translateY(${diff}px)`;
             e.preventDefault();
         }, {passive: false});
@@ -185,9 +184,8 @@
             if (diff < -80) changeVideo(1);
             else if (diff > 80 && historyIdx > 0) changeVideo(-1);
             else {
-                const activeCont = document.getElementById('c' + currentIdx);
-                activeCont.style.transition = 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.1)';
-                activeCont.style.transform = `translateY(0)`;
+                document.getElementById('c' + currentIdx).style.transition = 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.1)';
+                document.getElementById('c' + currentIdx).style.transform = `translateY(0)`;
             }
         });
 
@@ -195,6 +193,7 @@
             const activeCont = document.getElementById('c' + currentIdx);
             const nextLayerIdx = currentIdx === 1 ? 2 : 1;
             const nextCont = document.getElementById('c' + nextLayerIdx);
+            const nextVideo = document.getElementById('v' + nextLayerIdx);
 
             activeCont.style.transition = 'transform 0.3s ease-in';
             activeCont.style.transform = dir > 0 ? 'translateY(-100%)' : 'translateY(100%)';
@@ -202,36 +201,26 @@
             if (dir > 0) {
                 historyIdx++;
                 if (!history[historyIdx]) history.push(files[Math.floor(Math.random() * files.length)]);
-            } else {
-                historyIdx--;
-            }
+            } else { historyIdx--; }
 
             prepareContainer(nextLayerIdx, history[historyIdx]);
+            updateProgress(nextVideo); // Переключаем трекер на новое видео
 
             setTimeout(() => {
                 nextCont.style.transition = 'transform 0.3s cubic-bezier(0.23, 1, 0.32, 1)';
                 nextCont.style.transform = 'translateY(0)';
-                
-                const nextVideo = document.getElementById('v' + nextLayerIdx);
                 if (nextVideo.src) {
                     nextVideo.muted = false;
                     nextVideo.play().catch(() => { nextVideo.muted = true; nextVideo.play(); });
                 }
-
                 setTimeout(() => {
                     activeCont.style.transition = 'none';
                     activeCont.style.transform = dir > 0 ? 'translateY(100%)' : 'translateY(-100%)';
                     document.getElementById('v' + currentIdx).pause();
                     currentIdx = nextLayerIdx;
-                    let preUrl = history[historyIdx + 1] || files[Math.floor(Math.random() * files.length)];
-                    prepareContainer(currentIdx === 1 ? 2 : 1, preUrl);
                 }, 350);
             }, 50);
         }
-
-        window.addEventListener('wheel', e => {
-            if (Math.abs(e.deltaY) > 50) changeVideo(e.deltaY > 0 ? 1 : -1);
-        }, { passive: true });
     </script>
 </body>
 </html>
