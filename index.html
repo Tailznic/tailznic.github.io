@@ -30,7 +30,6 @@
             pointer-events: none; z-index: 10;
         }
 
-        /* ПОЛОСКА-ВОЛНА В СТИЛЕ ТИКТОК */
         .tiktok-progress-container {
             position: absolute; bottom: 0; left: 0; width: 100%; height: 4px;
             background: rgba(255, 255, 255, 0.1); z-index: 999;
@@ -38,7 +37,6 @@
         
         #progress-fill {
             width: 0%; height: 100%;
-            /* Эффект волны через градиент и анимацию */
             background: linear-gradient(90deg, #fff, #ccc, #fff);
             background-size: 200% 100%;
             animation: wave-animation 2s linear infinite;
@@ -62,6 +60,7 @@
         #enter-btn { 
             background: transparent; border: 1px solid #222; color: #555; padding: 10px 20px; 
             border-radius: 2px; font-size: 11px; cursor: pointer; text-transform: uppercase;
+            letter-spacing: 1px;
         }
     </style>
 </head>
@@ -81,12 +80,8 @@
     <div id="app">
         <div id="c1" class="container"><video id="v1" class="content" playsinline loop></video><img id="i1" class="content" style="display:none"></div>
         <div id="c2" class="container" style="transform: translateY(100%)"><video id="v2" class="content" playsinline loop></video><img id="i2" class="content" style="display:none"></div>
-        
         <div class="hint">Свайп вверх, чтобы пропустить</div>
-        
-        <div class="tiktok-progress-container">
-            <div id="progress-fill"></div>
-        </div>
+        <div class="tiktok-progress-container"><div id="progress-fill"></div></div>
     </div>
 
     <script>
@@ -129,8 +124,30 @@
                     localStorage.removeItem('seen_media');
                 }
                 unviewedFiles.sort(() => Math.random() - 0.5);
-                loadNextInHistory();
+                
+                // Запуск первого видео
+                startFirstVideo();
             } catch (e) { console.error("Error"); }
+        }
+
+        function startFirstVideo() {
+            historyIdx = 0;
+            const url = unviewedFiles.shift() || allFiles[0];
+            history.push(url);
+            markAsSeen(url);
+            
+            const v = document.getElementById('v' + currentIdx);
+            prepareContainer(currentIdx, url);
+            
+            // Ждем загрузки метаданных и пускаем
+            v.oncanplay = () => {
+                v.play().catch(() => { v.muted = true; v.play(); });
+                v.oncanplay = null;
+            };
+
+            // Прелоад второго
+            const nextUrl = unviewedFiles[0] || allFiles[1];
+            prepareContainer(currentIdx === 1 ? 2 : 1, nextUrl);
         }
 
         function updateProgress(videoElement) {
@@ -140,34 +157,28 @@
                     fill.style.width = percent + "%";
                 }
             };
-            videoElement.addEventListener('loadstart', () => fill.style.width = "0%");
         }
 
         function prepareContainer(num, url) {
             if (!url) return;
             const video = document.getElementById('v' + num), img = document.getElementById('i' + num);
             const ext = url.split('.').pop().toLowerCase();
+            
             video.style.display = img.style.display = 'none';
-            video.pause(); video.src = ""; img.src = "";
+            // Не очищаем src, если это прелоад того же самого
+            if (video.src !== url) {
+                video.pause();
+                video.src = url;
+                video.load();
+            }
+            
             if (['mp4', 'webm', 'mov', 'm4v'].includes(ext)) {
-                video.src = url; video.style.display = 'block'; video.load();
+                video.style.display = 'block';
                 if (num === currentIdx) updateProgress(video);
             } else {
                 img.src = url; img.style.display = 'block';
                 if (num === currentIdx) fill.style.width = "100%";
             }
-        }
-
-        function loadNextInHistory() {
-            historyIdx++;
-            if (!history[historyIdx]) {
-                const nextUrl = unviewedFiles.length > 0 ? unviewedFiles.shift() : allFiles[Math.floor(Math.random() * allFiles.length)];
-                history.push(nextUrl);
-                markAsSeen(nextUrl);
-            }
-            prepareContainer(currentIdx, history[historyIdx]);
-            let nextPre = history[historyIdx + 1] || unviewedFiles[0] || allFiles[Math.floor(Math.random() * allFiles.length)];
-            prepareContainer(currentIdx === 1 ? 2 : 1, nextPre);
         }
 
         const app = document.getElementById('app');
@@ -209,7 +220,7 @@
             if (dir > 0) {
                 historyIdx++;
                 if (!history[historyIdx]) {
-                    const nextUrl = unviewedFiles.length > 0 ? unviewedFiles.shift() : allFiles[Math.floor(Math.random() * allFiles.length)];
+                    const nextUrl = unviewedFiles.shift() || allFiles[Math.floor(Math.random() * allFiles.length)];
                     history.push(nextUrl);
                     markAsSeen(nextUrl);
                 }
@@ -221,16 +232,18 @@
             setTimeout(() => {
                 nextCont.style.transition = 'transform 0.3s cubic-bezier(0.23, 1, 0.32, 1)';
                 nextCont.style.transform = 'translateY(0)';
-                if (nextVideo.src) {
-                    nextVideo.muted = false;
+                if (nextVideo.readyState >= 2) {
                     nextVideo.play().catch(() => { nextVideo.muted = true; nextVideo.play(); });
                 }
+
                 setTimeout(() => {
                     activeCont.style.transition = 'none';
                     activeCont.style.transform = dir > 0 ? 'translateY(100%)' : 'translateY(-100%)';
                     document.getElementById('v' + currentIdx).pause();
                     currentIdx = nextLayerIdx;
-                    let preUrl = history[historyIdx + 1] || unviewedFiles[0] || allFiles[Math.floor(Math.random() * allFiles.length)];
+                    
+                    // Подгружаем будущее
+                    let preUrl = history[historyIdx + 1] || unviewedFiles[0] || allFiles[0];
                     prepareContainer(currentIdx === 1 ? 2 : 1, preUrl);
                 }, 350);
             }, 50);
