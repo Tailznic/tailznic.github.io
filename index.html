@@ -2,95 +2,113 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tailznic Player</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tailznic Media</title>
     <style>
-        body, html {
-            margin: 0; padding: 0; height: 100%; width: 100%;
-            background: #000; overflow: hidden;
-            display: flex; justify-content: center; align-items: center;
-            cursor: pointer; color: #fff; font-family: sans-serif;
+        body, html { margin: 0; padding: 0; height: 100%; width: 100%; background: #000; overflow: hidden; font-family: sans-serif; color: white; }
+        #app { position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
+        .content { max-height: 100vh; max-width: 100vw; object-fit: contain; z-index: 1; }
+        
+        /* Экран 18+ */
+        #age-gate {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 1000; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; text-align: center; padding: 20px;
         }
-        .content {
-            max-height: 100vh; max-width: 100vw;
-            display: none; object-fit: contain;
+        #age-gate h1 { color: #fe2c55; font-size: 48px; margin-bottom: 10px; }
+        #age-gate p { font-size: 18px; margin-bottom: 30px; color: #ccc; }
+        #enter-btn { 
+            background: #fe2c55; border: none; color: white; padding: 15px 40px; 
+            border-radius: 30px; font-size: 18px; font-weight: bold; cursor: pointer;
         }
-        #status {
-            position: fixed; text-align: center; width: 100%;
-            font-size: 18px; color: rgba(255,255,255,0.4);
-        }
+
+        /* Кнопки */
+        .sidebar { position: absolute; right: 15px; bottom: 120px; display: flex; flex-direction: column; align-items: center; gap: 25px; z-index: 10; }
+        .action-btn { display: flex; flex-direction: column; align-items: center; cursor: pointer; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
+        .action-btn svg { width: 35px; height: 35px; fill: white; margin-bottom: 5px; }
+        .action-btn.active svg { fill: #fe2c55; }
+        .action-btn span { font-size: 12px; font-weight: bold; }
+
+        #next-zone { position: absolute; width: 100%; height: 100%; z-index: 2; }
     </style>
 </head>
-<body onclick="showNext()">
+<body>
 
-    <div id="status">Нажмите на меня</div>
+    <div id="age-gate">
+        <h1>18+</h1>
+        <p>Контент может содержать маты и прочее.<br>Продолжить?</p>
+        <button id="enter-btn" onclick="verifyAge()">ДА</button>
+    </div>
 
-    <video id="v" class="content" playsinline></video>
-    <img id="i" class="content">
+    <div id="app" style="display: none;">
+        <div id="next-zone" onclick="showNext()"></div>
+        <video id="v" class="content" playsinline></video>
+        <img id="i" class="content">
+
+        <div class="sidebar">
+            <div class="action-btn" onclick="this.classList.toggle('active'); event.stopPropagation();">
+                <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                <span>Like</span>
+            </div>
+            <div class="action-btn" onclick="copyLink(event)">
+                <svg viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92c0-1.61-1.31-2.92-2.92-2.92z"/></svg>
+                <span>Link</span>
+            </div>
+        </div>
+    </div>
 
     <script>
         const USER = 'Tailznic';
         const REPO = 'tailznic.github.io';
-        const FOLDER = 'media'; 
+        const FOLDER = 'media';
+        let files = [], queue = [];
 
-        let files = [];
-        let queue = [];
-        const v = document.getElementById('v');
-        const i = document.getElementById('i');
-        const status = document.getElementById('status');
+        const v = document.getElementById('v'), i = document.getElementById('i');
+
+        function verifyAge() {
+            document.getElementById('age-gate').style.display = 'none';
+            document.getElementById('app').style.display = 'flex';
+            init();
+        }
 
         async function init() {
             try {
                 const res = await fetch(`https://api.github.com/repos/${USER}/${REPO}/contents/${FOLDER}`);
                 const data = await res.json();
-                if (!Array.isArray(data)) return;
-
-                files = data
-                    .filter(f => f.type === 'file')
-                    .map(f => f.download_url);
-            } catch (err) {
-                console.error("Ошибка загрузки:", err);
-            }
+                files = data.filter(f => f.type === 'file').map(f => f.download_url);
+                queue = [...files].sort(() => Math.random() - 0.5);
+                showNext();
+            } catch (e) { alert("Ошибка загрузки медиа"); }
         }
 
         function showNext() {
-            if (files.length === 0) return;
-            status.style.display = 'none';
-
             if (queue.length === 0) {
-                queue = [...files].sort(() => Math.random() - 0.5);
+                alert("Контент закончился! Обнови страницу или добавь новые видео.");
+                return;
             }
-
+            
             const url = queue.pop();
-            const ext = url.split('.').pop().toLowerCase().split('?')[0];
+            const ext = url.split('.').pop().toLowerCase();
 
             v.style.display = i.style.display = 'none';
-            v.pause();
-            v.src = "";
+            v.pause(); v.src = "";
 
-            // Расширенная поддержка форматов
-            const videoExts = ['mp4', 'webm', 'mov', 'ogg'];
-            const photoExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'bmp'];
-
-            if (videoExts.includes(ext)) {
-                v.src = url;
-                v.style.display = 'block';
-                v.muted = false; // ВКЛЮЧАЕМ ЗВУК
-                v.play().catch(e => {
-                    // Если браузер все еще ругается, запускаем без звука
-                    v.muted = false;
-                    v.play();
-                });
-            } else if (photoExts.includes(ext)) {
-                i.src = url;
-                i.style.display = 'block';
+            if (['mp4', 'webm', 'mov'].includes(ext)) {
+                v.src = url; v.style.display = 'block'; v.play();
             } else {
-                showNext(); // Если попался файл другого типа, просто берем следующий
+                i.src = url; i.style.display = 'block';
             }
         }
 
+        function copyLink(e) {
+            e.stopPropagation();
+            const currentSrc = v.src || i.src;
+            navigator.clipboard.writeText(currentSrc);
+            alert("Прямая ссылка на файл скопирована!");
+        }
+
         v.onended = showNext;
-        init();
     </script>
 </body>
 </html>
+
